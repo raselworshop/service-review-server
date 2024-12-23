@@ -33,9 +33,45 @@ async function run() {
         // reviews releted 
         app.post('/reviews', async (req, res) => {
             const review = req.body;
-            console.log(review, "review posting")
+            // console.log(review, "review posting")
+            // if already reviewed 
+            const query = { email: review.email, serviceId: review.serviceId }
+            const aleardyExist = await reviewsCollection.findOne(query)
+            if (aleardyExist) return res.status(400).send({ message: "You have already given review" })
+            console.log("Already exist", aleardyExist)
             try {
-                const result = await reviewsCollection.insertOne(review)
+                const newReview = {
+                    review: review.review,
+                    rating: review.rating,
+                    reviewDate: review.reviewDate,
+                    serviceTitle: review.serviceTitle,
+                    photo: review.photo,
+                    Name: review.Name,
+                    email: review.email,
+                    serviceId: review.serviceId,
+                    _id: new ObjectId(),
+                };
+                const result = await reviewsCollection.insertOne(newReview)
+
+                const service = await serviceCollection.findOne({ _id: new ObjectId(newReview.serviceId) })
+                if (service) {
+                    const updatedRatings = [...(service.ratings || []), {
+                        review: review.review,
+                        rating: review.rating,
+                        reviewDate: review.reviewDate,
+                        photo: review.photo,
+                        Name: review.Name,
+                        email: review.email,
+                        _id: new ObjectId(),
+                        serviceId: review.serviceId,
+                    }];
+                    const updatedResult = await serviceCollection.updateOne(
+                        { _id: new ObjectId(newReview.serviceId) },
+                        { $set: { ratings: updatedRatings } }
+                    )
+                    // console.log("Updated result is here",updatedResult)
+                }
+                // console.log("this is service",service)
                 res.status(201).send(result)
             } catch (error) {
                 res.status(500).send({ message: "Failed to add review" });
@@ -45,7 +81,7 @@ async function run() {
         app.get('/reviews/user/:email', async (req, res) => {
             const email = req.params.email;
             try {
-                const reviews = await reviewsCollection.find({email}).toArray();
+                const reviews = await reviewsCollection.find({ email }).toArray();
                 res.send(reviews)
             } catch (error) {
                 res.status(500).send({ message: "Failed to fetch reviews" });
@@ -54,18 +90,96 @@ async function run() {
 
         // update review by specific user 
         app.put('/reviews/update/:id', async (req, res) => {
-            const id = req.params.id;
+            const { id: reviewId } = req.params;
             const updatedReview = req.body;
-            const result = await reviewsCollection.updateOne({_id: new ObjectId(id)}, {$set: updatedReview})
-            res.send(result)
-        })
+
+            try {
+                // upadte the revwe 
+                const review = await reviewsCollection.findOne(
+                    { _id: new ObjectId(reviewId) }
+                )
+                if (!review) return res.status(404).send({ message: "Review not found" })
+                const service = await serviceCollection.findOne({ _id: new ObjectId(review.serviceId) })
+                if (service) {
+                    // find review to update 
+                    const updatedRatings = service.ratings.map(rating => {
+                        if (rating._id && reviewId && rating._id === reviewId) {
+                            // update review data 
+                            return {
+                                ...rating,
+                                review: updatedReview.review,
+                                rating: updatedReview.rating,
+                                reviewDate: updatedReview.reviewDate,
+                            }
+                        }
+                        return rating;
+                    })
+                    await serviceCollection.updateOne(
+                        { _id: new ObjectId(review.serviceId) },
+                        { $set: { ratings: updatedRatings } }
+                    )
+                }
+
+                const result = await reviewsCollection.updateOne(
+                    { _id: new ObjectId(reviewId) },
+                    { $set: updatedReview }
+                );
+                if (!result) {
+                    return res.status(404).send({ message: "Review not found" });
+                }
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ message: "Failed to update review" });
+            }
+        });
+
 
         // review delete 
+        // app.delete('/reviews/delete/:id', async (req, res) => {
+        //     const reviewId = req.params.id;
+        //     try {
+        //         const result = await reviewsCollection.deleteOne({ _id: new ObjectId(reviewId) });
+        //         res.send(result);
+        //     } catch (error) {
+        //         res.status(500).send({ message: "Failed to delete review" });
+        //     }
+        // });
         app.delete('/reviews/delete/:id', async (req, res) => {
-            const id = req.params.id;
-            const result = await reviewsCollection.deleteOne({_id: new ObjectId(id)})
-            res.send(result)
-        })
+            const reviewId = req.params.id;
+        
+            try {
+                const reviewToDelete = await reviewsCollection.findOne({ _id: new ObjectId(reviewId) });
+        
+                if (!reviewToDelete) {
+                    return res.status(404).send({ message: "Review not found" });
+                }
+        
+                const service = await serviceCollection.findOne({ _id: new ObjectId(reviewToDelete.serviceId) });
+                if (service) {
+                    const updatedRatings = service.ratings.filter(rating => rating._id !== reviewId);
+        
+                    await serviceCollection.updateOne(
+                        { _id: new ObjectId(reviewToDelete.serviceId) },
+                        { $set: { ratings: updatedRatings } } 
+                    );
+                }
+         
+                const result = await reviewsCollection.deleteOne({ _id: new ObjectId(reviewId) });
+        
+                if (result.deletedCount === 1) {
+                    res.status(200).send({ message: "Review and corresponding rating deleted successfully" });
+                } else {
+                    res.status(404).send({ message: "Review not found" });
+                }
+                console.log('Deleting review with ID:', reviewId);
+
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ message: "Failed to delete review and update ratings" });
+            }
+        });
+        
 
         app.post('/user/add/service', async (req, res) => {
             const serviceData = req.body;
@@ -75,7 +189,7 @@ async function run() {
         })
         // limited service view 
         app.get('/services', async (req, res) => {
-            const cursor = serviceCollection.find().sort({addedDate: -1}).limit(6);
+            const cursor = serviceCollection.find().sort({ addedDate: -1 }).limit(6);
             const result = await cursor.toArray();
             res.send(result)
         })
@@ -86,20 +200,20 @@ async function run() {
             // const {rating } = req.body;
             const { review, rating, reviewDate, photo, Name, email } = req.body;
             console.log(review, rating, reviewDate, photo, Name, email);
-            if(rating< 1 || rating > 5){
-                return res.status(400).send({message: "Rating should be 1 and 5"})
+            if (rating < 1 || rating > 5) {
+                return res.status(400).send({ message: "Rating should be 1 and 5" })
             }
             try {
-                const service = await serviceCollection.findOne({_id:new ObjectId(serviceId)});
-                if(!service){
-                    return res.status(404).send({message: "Service not found"})
+                const service = await serviceCollection.findOne({ _id: new ObjectId(serviceId) });
+                if (!service) {
+                    return res.status(404).send({ message: "Service not found" })
                 }
-                const updatedRatings = [...(service.ratings || []), {review, rating, reviewDate, photo, Name, email}];
+                const updatedRatings = [...(service.ratings || []), { review, rating, reviewDate, photo, Name, email }];
                 const result = await serviceCollection.updateOne(
-                    {_id: new ObjectId(serviceId)},
-                    {$set: {ratings: updatedRatings}}
+                    { _id: new ObjectId(serviceId) },
+                    { $set: { ratings: updatedRatings } }
                 )
-                res.status(200).send({message: "Rating addd successfully!", result})
+                res.status(200).send({ message: "Rating addd successfully!", result })
             } catch (error) {
                 console.error(error);
                 res.status(500).send({ message: "Error adding rating." });
