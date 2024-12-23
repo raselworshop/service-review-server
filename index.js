@@ -145,26 +145,26 @@ async function run() {
         // });
         app.delete('/reviews/delete/:id', async (req, res) => {
             const reviewId = req.params.id;
-        
+
             try {
                 const reviewToDelete = await reviewsCollection.findOne({ _id: new ObjectId(reviewId) });
-        
+
                 if (!reviewToDelete) {
                     return res.status(404).send({ message: "Review not found" });
                 }
-        
+
                 const service = await serviceCollection.findOne({ _id: new ObjectId(reviewToDelete.serviceId) });
                 if (service) {
                     const updatedRatings = service.ratings.filter(rating => rating._id !== reviewId);
-        
+
                     await serviceCollection.updateOne(
                         { _id: new ObjectId(reviewToDelete.serviceId) },
-                        { $set: { ratings: updatedRatings } } 
+                        { $set: { ratings: updatedRatings } }
                     );
                 }
-         
+
                 const result = await reviewsCollection.deleteOne({ _id: new ObjectId(reviewId) });
-        
+
                 if (result.deletedCount === 1) {
                     res.status(200).send({ message: "Review and corresponding rating deleted successfully" });
                 } else {
@@ -181,7 +181,7 @@ async function run() {
         app.get('/services/user/:email', async (req, res) => {
             const email = req.params.email;
             try {
-                const services = await serviceCollection.find( {userEmail:email} ).toArray();
+                const services = await serviceCollection.find({ userEmail: email }).toArray();
                 res.send(services)
             } catch (error) {
                 res.status(500).send({ message: "Failed to fetch reviews" });
@@ -204,14 +204,14 @@ async function run() {
             const id = req.params.id;
             const updatedService = req.body;
             try {
-                const query = {_id: new ObjectId(id)}
+                const query = { _id: new ObjectId(id) }
                 const update = {
                     $set: updatedService
                 }
-                console.log("Updating service with ID:", id); 
+                console.log("Updating service with ID:", id);
                 console.log("Update Data:", updatedService);
                 const result = await serviceCollection.updateOne(query, update);
-                console.log("Result is from update",result)
+                console.log("Result is from update", result)
                 res.send(result)
             } catch (error) {
                 console.error("Error updating service:", error);
@@ -219,7 +219,17 @@ async function run() {
             }
         })
         // service deleting 
-        
+        app.delete('/services/delete/:id', async (req, res) => {
+            const id = req.params.id;
+            try {
+                const query = { _id: new ObjectId(id) }
+                const result = await serviceCollection.deleteOne(query)
+                res.send(result)
+            } catch (error) {
+                console.error('Error deleting service:', error);
+                res.status(500).send({ message: 'Internal Server Error' });
+            }
+        })
 
         // Rating add for a service 
         app.post('/services/rating/:id', async (req, res) => {
