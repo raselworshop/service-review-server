@@ -28,20 +28,67 @@ async function run() {
         await client.connect();
 
         const serviceCollection = client.db('ServiceReview').collection('Services')
+        const reviewsCollection = client.db('ServiceReview').collection('Reviews')
+
+        // reviews releted 
+        app.post('/reviews', async (req, res) => {
+            const review = req.body;
+            console.log(review, "review posting")
+            try {
+                const result = await reviewsCollection.insertOne(review)
+                res.status(201).send(result)
+            } catch (error) {
+                res.status(500).send({ message: "Failed to add review" });
+            }
+        })
+        app.get('/reviews/:serviceId', async (req, res) => {
+            const serviceId = req.params.serviceId;
+            try {
+                const reviews = await reviewsCollection.find({serviceId}).toArray();
+                res.send(reviews)
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch reviews" });
+            }
+        })
 
         app.post('/user/add/service', async (req, res) => {
             const serviceData = req.body;
-            console.log(serviceData);
+            // console.log(serviceData);
             const result = await serviceCollection.insertOne(serviceData);
             res.send(result)
         })
         // limited service view 
         app.get('/services', async (req, res) => {
-            const cursor = serviceCollection.find().limit(6);
+            const cursor = serviceCollection.find().sort({addedDate: -1}).limit(6);
             const result = await cursor.toArray();
             res.send(result)
         })
 
+        // Rating add for a service 
+        app.post('/services/rating/:id', async (req, res) => {
+            const serviceId = req.params.id;
+            // const {rating } = req.body;
+            const { review, rating, reviewDate, photo, Name } = req.body;
+            console.log(review, rating, reviewDate, photo, Name);
+            if(rating< 1 || rating > 5){
+                return res.status(400).send({message: "Rating should be 1 and 5"})
+            }
+            try {
+                const service = await serviceCollection.findOne({_id:new ObjectId(serviceId)});
+                if(!service){
+                    return res.status(404).send({message: "Service not found"})
+                }
+                const updatedRatings = [...(service.ratings || []), {review, rating, reviewDate, photo, Name}];
+                const result = await serviceCollection.updateOne(
+                    {_id: new ObjectId(serviceId)},
+                    {$set: {ratings: updatedRatings}}
+                )
+                res.status(200).send({message: "Rating addd successfully!", result})
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ message: "Error adding rating." });
+            }
+        })
         // all services page 
         app.get('/all/services', async (req, res) => {
 
