@@ -194,11 +194,39 @@ async function run() {
             res.send(result)
         })
         // limited service view 
-        app.get('/services', async (req, res) => {
+        app.get('/services/limited', async (req, res) => {
             const cursor = serviceCollection.find().sort({ addedDate: -1 }).limit(6);
             const result = await cursor.toArray();
             res.send(result)
         })
+        // implement to categoriesed
+        app.get('/services', async (req, res) => {
+            const { category } = req.query;
+            let query = {};
+            if (category && category !== 'All') {
+                query = { category: { $regex: category, $options: 'i' } };
+            }
+            
+            try {
+                const services = await serviceCollection.find(query).toArray();
+                res.send(services);
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to fetch services' });
+            }
+        });
+        app.get('/categories', async (req, res) => {
+            try {
+                // Use aggregate to fetch distinct categories
+                const categories = await serviceCollection.aggregate([
+                    { $group: { _id: "$category" } }
+                ]).toArray();
+                const categoryList = categories.map(cat => cat._id);
+                res.send(categoryList);
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to fetch categories' });
+            }
+        });
+        
         // service updating 
         app.put('/services/update/:id', async (req, res) => {
             const id = req.params.id;
