@@ -133,8 +133,6 @@ async function run() {
                 res.status(500).send({ message: "Failed to update review" });
             }
         });
-
-
         // review delete 
         // app.delete('/reviews/delete/:id', async (req, res) => {
         //     const reviewId = req.params.id;
@@ -179,8 +177,16 @@ async function run() {
                 res.status(500).send({ message: "Failed to delete review and update ratings" });
             }
         });
-        
-
+        // get services by a specific user 
+        app.get('/services/user/:email', async (req, res) => {
+            const email = req.params.email;
+            try {
+                const services = await serviceCollection.find( {userEmail:email} ).toArray();
+                res.send(services)
+            } catch (error) {
+                res.status(500).send({ message: "Failed to fetch reviews" });
+            }
+        })
         app.post('/user/add/service', async (req, res) => {
             const serviceData = req.body;
             // console.log(serviceData);
@@ -193,6 +199,27 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         })
+        // service updating 
+        app.put('/services/update/:id', async (req, res) => {
+            const id = req.params.id;
+            const updatedService = req.body;
+            try {
+                const query = {_id: new ObjectId(id)}
+                const update = {
+                    $set: updatedService
+                }
+                console.log("Updating service with ID:", id); 
+                console.log("Update Data:", updatedService);
+                const result = await serviceCollection.updateOne(query, update);
+                console.log("Result is from update",result)
+                res.send(result)
+            } catch (error) {
+                console.error("Error updating service:", error);
+                res.status(500).send({ message: "Failed to update service" });
+            }
+        })
+        // service deleting 
+        
 
         // Rating add for a service 
         app.post('/services/rating/:id', async (req, res) => {
