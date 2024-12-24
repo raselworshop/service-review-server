@@ -226,7 +226,26 @@ async function run() {
                 res.status(500).send({ message: 'Failed to fetch categories' });
             }
         });
-        
+        // from navbar search 
+        app.get('/services/search', async (req, res) => {
+            const {query } = req.query;
+            let searchQuery = {};
+            if(query){
+                searchQuery={
+                    $or:[
+                        {title: {$regex: query, $options:"i"}},
+                        {category: {$regex: query, $options:"i"}},
+                        {companyName: {$regex: query, $options:"i"}},
+                    ]
+                }
+            }
+            try {
+                const services = await serviceCollection.find(searchQuery).toArray();
+                res.send(services)
+            } catch (error) {
+                res.status(500).send({ message: 'Failed to fetch services' });
+            }
+        })
         // service updating 
         app.put('/services/update/:id', async (req, res) => {
             const id = req.params.id;
