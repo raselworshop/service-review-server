@@ -251,6 +251,9 @@ async function run() {
             const page = parseInt(req.query.page)
             const size = parseInt(req.query.size)
             console.log("from pagination services", req.query)
+            if(!req.user){
+                return res.status(403).send({message:"fobidden access"})
+            }
             let query = {};
             if (category && category !== 'All') {
                 query = { category: { $regex: category, $options: 'i' } };
@@ -373,8 +376,8 @@ async function run() {
         app.get('/services/details/:id', tokenVerify, async (req, res) => {
             const id = req.params.id;
             console.log(id)
-            const email = req.query.email;
-            if(req.user.email !== email){
+            // const email = req.query.email;
+            if(!req.user){
                 return res.status(403).send({message:"fobidden access"})
             }
             const query = { _id: new ObjectId(id) };
