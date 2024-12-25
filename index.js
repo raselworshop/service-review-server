@@ -247,22 +247,22 @@ async function run() {
         })
         // implement to categoriesed
         app.get('/services', tokenVerify, async (req, res) => {
-            const { category, } = req.query;
-            // const email = req.body.email;
-            // console.log("from mail", email)
-            // if(req.user.email !== email){
-            //     return res.status(403).send({message:"fobidden access"})
-            // }
-            console.log("from services")
+            const { category } = req.query;
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size)
+            console.log("from pagination services", req.query)
             let query = {};
             if (category && category !== 'All') {
                 query = { category: { $regex: category, $options: 'i' } };
                 // query = { category: new RegExp(category, 'i') };
-                console.log("Request received with query:", { category, })
+                console.log("Request received with query:", { category })
             }
 
             try {
-                const services = await serviceCollection.find(query).toArray();
+                const services = await serviceCollection.find(query)
+                .skip(page * size)
+                .limit(size)
+                .toArray();
                 res.send(services);
             } catch (error) {
                 res.status(500).send({ message: 'Failed to fetch services' });
@@ -280,6 +280,11 @@ async function run() {
                 res.status(500).send({ message: 'Failed to fetch categories' });
             }
         });
+        // pagination 
+        app.get('/servicesCount', async (req, res) => {
+            const count = await serviceCollection.estimatedDocumentCount();
+            res.send({count})
+        })
         // from navbar search 
         app.get('/services/search', async (req, res) => {
             const { query } = req.query;
