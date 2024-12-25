@@ -1,14 +1,35 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express();
 const port = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:5173',
+    ],
+    credentials: true,
+}));
 app.use(express.json());
+app.use(cookieParser());
 
-
+const tokenVerify = async (req, res, next) => {
+    console.log('from token verify', req.cookies);
+    const token = req?.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ message: "unauthorized access!" });
+    }
+    jwt.verify(token, process.env.JWT_SECRET, (err, decode) => {
+        if (err) {
+            return res.status(401).send({ message: "Unauthorized access prohabitted!" })
+        }
+        req.user = decode;
+        next();
+    })
+}
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5hy3n.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -30,6 +51,24 @@ async function run() {
         const serviceCollection = client.db('ServiceReview').collection('Services')
         const reviewsCollection = client.db('ServiceReview').collection('Reviews')
 
+        // auth related 
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '5h' });
+            res
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: false
+                })
+                .send({ success: true })
+        })
+        app.post('/signout', (req, res)=>{
+            res.clearCookie('token', {
+                httpOnly:true,
+                secure:false,
+            })
+            .send({success:true})
+        })
         // reviews releted 
         app.post('/reviews', async (req, res) => {
             const review = req.body;
@@ -78,8 +117,11 @@ async function run() {
             }
         })
         // user bsed reviews
-        app.get('/reviews/user/:email', async (req, res) => {
+        app.get('/reviews/user/:email', tokenVerify, async (req, res) => {
             const email = req.params.email;
+            if(req.user.email !== email){
+                return res.status(403).send({message:"fobidden access"})
+            }
             try {
                 const reviews = await reviewsCollection.find({ email }).toArray();
                 res.send(reviews)
@@ -178,8 +220,12 @@ async function run() {
             }
         });
         // get services by a specific user 
-        app.get('/services/user/:email', async (req, res) => {
+        app.get('/services/user/:email',tokenVerify, async (req, res) => {
             const email = req.params.email;
+            if(req.user.email !== email){
+                return res.status(403).send({message:"fobidden access"})
+            }
+            console.log("cookies", req.cookies)
             try {
                 const services = await serviceCollection.find({ userEmail: email }).toArray();
                 res.send(services)
@@ -200,13 +246,21 @@ async function run() {
             res.send(result)
         })
         // implement to categoriesed
-        app.get('/services', async (req, res) => {
-            const { category } = req.query;
+        app.get('/services', tokenVerify, async (req, res) => {
+            const { category, } = req.query;
+            // const email = req.body.email;
+            // console.log("from mail", email)
+            // if(req.user.email !== email){
+            //     return res.status(403).send({message:"fobidden access"})
+            // }
+            console.log("from services")
             let query = {};
             if (category && category !== 'All') {
                 query = { category: { $regex: category, $options: 'i' } };
+                // query = { category: new RegExp(category, 'i') };
+                console.log("Request received with query:", { category, })
             }
-            
+
             try {
                 const services = await serviceCollection.find(query).toArray();
                 res.send(services);
@@ -228,14 +282,14 @@ async function run() {
         });
         // from navbar search 
         app.get('/services/search', async (req, res) => {
-            const {query } = req.query;
+            const { query } = req.query;
             let searchQuery = {};
-            if(query){
-                searchQuery={
-                    $or:[
-                        {title: {$regex: query, $options:"i"}},
-                        {category: {$regex: query, $options:"i"}},
-                        {companyName: {$regex: query, $options:"i"}},
+            if (query) {
+                searchQuery = {
+                    $or: [
+                        { title: { $regex: query, $options: "i" } },
+                        { category: { $regex: query, $options: "i" } },
+                        { companyName: { $regex: query, $options: "i" } },
                     ]
                 }
             }
@@ -304,16 +358,20 @@ async function run() {
             }
         })
         // all services page 
-        app.get('/all/services', async (req, res) => {
+        // app.get('/all/services', async (req, res) => {
 
-            const result = await serviceCollection.find().toArray();
-            res.send(result)
-        })
+        //     const result = await serviceCollection.find().toArray();
+        //     res.send(result)
+        // })
 
         // details page 
-        app.get('/services/details/:id', async (req, res) => {
+        app.get('/services/details/:id', tokenVerify, async (req, res) => {
             const id = req.params.id;
             console.log(id)
+            const email = req.query.email;
+            if(req.user.email !== email){
+                return res.status(403).send({message:"fobidden access"})
+            }
             const query = { _id: new ObjectId(id) };
             const result = await serviceCollection.findOne(query);
             res.send(result)
