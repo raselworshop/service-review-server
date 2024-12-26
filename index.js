@@ -10,6 +10,9 @@ const port = process.env.PORT || 5000;
 app.use(cors({
     origin: [
         'http://localhost:5173',
+        "https://service-review-b0708.web.app",
+        "https://service-review-b0708.firebaseapp.com",
+        "https://fascinating-chebakia-6bd25e.netlify.app"
     ],
     credentials: true,
 }));
@@ -46,7 +49,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
 
         const serviceCollection = client.db('ServiceReview').collection('Services')
         const reviewsCollection = client.db('ServiceReview').collection('Reviews')
@@ -58,14 +61,17 @@ async function run() {
             res
                 .cookie('token', token, {
                     httpOnly: true,
-                    secure: false
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production'? 'none' : 'strict'
                 })
                 .send({ success: true })
         })
         app.post('/signout', (req, res)=>{
             res.clearCookie('token', {
                 httpOnly:true,
-                secure:false,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production'? 'none' : 'strict'
+
             })
             .send({success:true})
         })
