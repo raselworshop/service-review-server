@@ -12,7 +12,8 @@ app.use(cors({
         'http://localhost:5173',
         "https://service-review-b0708.web.app",
         "https://service-review-b0708.firebaseapp.com",
-        "https://fascinating-chebakia-6bd25e.netlify.app"
+        "https://fascinating-chebakia-6bd25e.netlify.app",
+        "https://preeminent-pika-c5dbd8.netlify.app"
     ],
     credentials: true,
 }));

@@ -82,7 +82,7 @@ Official MongoDB driver for Node.js.
 ## Deployment
 
 - **Backend** is deployed on [Vercel](https://service-review-system-server-mauve.vercel.app).
-- **Frontend** is deployed on [Netlify](https://fascinating-chebakia-6bd25e.netlify.app).
+- **Frontend** is deployed on [Netlify](https://preeminent-pika-c5dbd8.netlify.app).
 - **Frontend** is deployed on [Firebase](https://service-review-b0708.web.app).
 - Firebase handles authentication and real-time database storage.
 
