@@ -56,25 +56,25 @@ async function run() {
         const reviewsCollection = client.db('ServiceReview').collection('Reviews')
 
         // auth related 
-        app.post('/jwt', async (req, res) => {
+        app.post('/jwt', (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '5h' });
             res
                 .cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
-                    sameSite: process.env.NODE_ENV === 'production'? 'none' : 'strict'
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
                 })
                 .send({ success: true })
         })
-        app.post('/signout', (req, res)=>{
+        app.post('/signout', (req, res) => {
             res.clearCookie('token', {
-                httpOnly:true,
+                httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production'? 'none' : 'strict'
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
 
             })
-            .send({success:true})
+                .send({ success: true })
         })
         // reviews releted 
         app.post('/reviews', async (req, res) => {
@@ -126,11 +126,12 @@ async function run() {
         // user bsed reviews
         app.get('/reviews/user/:email', tokenVerify, async (req, res) => {
             const email = req.params.email;
-            if(req.user.email !== email){
-                return res.status(403).send({message:"fobidden access"})
+            const query = {email: email}
+            if (req.user.email !== req.params.email) {
+                return res.status(403).send({ message: "fobidden access" })
             }
             try {
-                const reviews = await reviewsCollection.find({ email }).toArray();
+                const reviews = await reviewsCollection.find(query ).toArray();
                 res.send(reviews)
             } catch (error) {
                 res.status(500).send({ message: "Failed to fetch reviews" });
@@ -227,10 +228,10 @@ async function run() {
             }
         });
         // get services by a specific user 
-        app.get('/services/user/:email',tokenVerify, async (req, res) => {
+        app.get('/services/user/:email', tokenVerify, async (req, res) => {
             const email = req.params.email;
-            if(req.user.email !== email){
-                return res.status(403).send({message:"fobidden access"})
+            if (req.user.email !== email) {
+                return res.status(403).send({ message: "fobidden access" })
             }
             console.log("cookies", req.cookies)
             try {
@@ -248,19 +249,19 @@ async function run() {
         })
         // limited service view 
         app.get('/services/limited', async (req, res) => {
-            const cursor = serviceCollection.find().sort({ addedDate: -1 }).limit(6);
+            const cursor = serviceCollection.find().sort({ addedDate: -1 }).limit(8);
             const result = await cursor.toArray();
             res.send(result)
         })
         // implement to categoriesed
-        app.get('/services', tokenVerify, async (req, res) => {
+        app.get('/services', async (req, res) => {
             const { category } = req.query;
             const page = parseInt(req.query.page)
             const size = parseInt(req.query.size)
             console.log("from pagination services", req.query)
-            if(!req.user){
-                return res.status(403).send({message:"fobidden access"})
-            }
+            // if (!req.user) {
+            //     return res.status(403).send({ message: "fobidden access" })
+            // }
             let query = {};
             if (category && category !== 'All') {
                 query = { category: { $regex: category, $options: 'i' } };
@@ -270,9 +271,9 @@ async function run() {
 
             try {
                 const services = await serviceCollection.find(query)
-                .skip(page * size)
-                .limit(size)
-                .toArray();
+                    .skip(page * size)
+                    .limit(size)
+                    .toArray();
                 res.send(services);
             } catch (error) {
                 res.status(500).send({ message: 'Failed to fetch services' });
@@ -293,7 +294,7 @@ async function run() {
         // pagination 
         app.get('/servicesCount', async (req, res) => {
             const count = await serviceCollection.estimatedDocumentCount();
-            res.send({count})
+            res.send({ count })
         })
         // from navbar search 
         app.get('/services/search', async (req, res) => {
@@ -380,13 +381,13 @@ async function run() {
         // })
 
         // details page 
-        app.get('/services/details/:id', tokenVerify, async (req, res) => {
+        app.get('/services/details/:id', async (req, res) => {
             const id = req.params.id;
             console.log(id)
             // const email = req.query.email;
-            if(!req.user){
-                return res.status(403).send({message:"fobidden access"})
-            }
+            // if(!req.user){
+            //     return res.status(403).send({message:"fobidden access"})
+            // }
             const query = { _id: new ObjectId(id) };
             const result = await serviceCollection.findOne(query);
             res.send(result)
